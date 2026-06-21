@@ -13,7 +13,7 @@ const USER_AGENT =
 // Extract clean readable text from an HTML string using cheerio
 function extractText($) {
   // Remove noise elements
-  $('script, style, noscript, nav, footer, header, iframe, img, svg, form, button').remove()
+  $('script, style, nav, footer, header, iframe, img, svg, form, button').remove()
   $('[aria-hidden="true"]').remove()
 
   // Prefer main content areas, fall back to full body
