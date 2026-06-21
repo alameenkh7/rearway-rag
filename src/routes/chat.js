@@ -2,7 +2,7 @@ const express = require('express')
 const { v4: uuidv4 } = require('uuid')
 const OpenAI = require('openai')
 
-const { findBotById } = require('../db/bots')
+const { findBotById, addTokenUsage } = require('../db/bots')
 const { loadVectorStore } = require('../rag/vectorStore')
 const { embedQuery } = require('../rag/embed')
 const { findRelevantChunks } = require('../rag/search')
@@ -42,6 +42,32 @@ router.post('/:botId', async (req, res) => {
     return res.status(404).json({ error: 'Bot not found' })
   }
 
+  // ── Trial gates ────────────────────────────────────────────────────────────
+
+  // Gate 1: Time expiry (trial only)
+  if (bot.plan === 'trial' && bot.expires_at) {
+    if (new Date(bot.expires_at) < new Date()) {
+      return res.status(402).json({
+        error: 'trial_expired',
+        message: `This bot's trial period ended on ${new Date(bot.expires_at).toLocaleDateString()}. Please upgrade to continue.`,
+        upgradeUrl: 'https://rearway.com/resolve',
+      })
+    }
+  }
+
+  // Gate 2: Token limit (trial only)
+  if (bot.plan === 'trial' && bot.token_limit !== null) {
+    if (bot.token_usage >= bot.token_limit) {
+      return res.status(402).json({
+        error: 'token_limit_reached',
+        message: `This bot has used its ${bot.token_limit.toLocaleString()} trial token allowance. Please upgrade to continue.`,
+        upgradeUrl: 'https://rearway.com/resolve',
+      })
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+
   // Step 2: Load vector store from disk
   const vectorStore = loadVectorStore(botId)
   if (!vectorStore) {
@@ -66,7 +92,7 @@ router.post('/:botId', async (req, res) => {
       content: `Context:\n${contextChunks.join('\n---\n')}\n\nQuestion: ${message.trim()}`,
     }
 
-    // Step 6: Call OpenAI chat completion
+    // Step 6: Call OpenRouter chat completion
     const client = getOpenAI()
     const completion = await client.chat.completions.create({
       model: 'openai/gpt-4o-mini',
@@ -77,7 +103,13 @@ router.post('/:botId', async (req, res) => {
 
     const answer = completion.choices[0].message.content.trim()
 
-    // Step 7: Return the answer + a session ID
+    // Step 7: Track token usage for trial bots
+    // OpenRouter returns usage.total_tokens in the response
+    if (bot.plan === 'trial' && completion.usage && completion.usage.total_tokens) {
+      addTokenUsage(botId, completion.usage.total_tokens)
+    }
+
+    // Step 8: Return the answer + a session ID
     return res.json({
       answer,
       sessionId: sessionId || uuidv4(),

@@ -15,7 +15,9 @@
     "openai": "^4.47.0",
     "pdf-parse": "^1.1.1",
     "uuid": "^9.0.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "axios": "^1.7.2",
+    "cheerio": "^1.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

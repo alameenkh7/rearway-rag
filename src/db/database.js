@@ -21,6 +21,7 @@ function getDb() {
 function initDatabase() {
   const database = getDb()
 
+  // Base table — created on first run
   database.exec(`
     CREATE TABLE IF NOT EXISTS bots (
       id TEXT PRIMARY KEY,
@@ -28,11 +29,38 @@ function initDatabase() {
       business_type TEXT,
       email TEXT NOT NULL,
       description TEXT,
+      website_url TEXT,
       chunk_count INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      status TEXT DEFAULT 'active'
+      status TEXT DEFAULT 'active',
+      plan TEXT DEFAULT 'trial',
+      expires_at DATETIME,
+      token_usage INTEGER DEFAULT 0,
+      token_limit INTEGER DEFAULT 50000
     );
   `)
+
+  // Migration: safely add new columns to existing databases.
+  // SQLite does not support ALTER TABLE ... ADD COLUMN IF NOT EXISTS,
+  // so we attempt each column and swallow the "duplicate column" error.
+  const migrations = [
+    `ALTER TABLE bots ADD COLUMN website_url TEXT`,
+    `ALTER TABLE bots ADD COLUMN plan TEXT DEFAULT 'trial'`,
+    `ALTER TABLE bots ADD COLUMN expires_at DATETIME`,
+    `ALTER TABLE bots ADD COLUMN token_usage INTEGER DEFAULT 0`,
+    `ALTER TABLE bots ADD COLUMN token_limit INTEGER DEFAULT 50000`,
+  ]
+
+  for (const sql of migrations) {
+    try {
+      database.exec(sql)
+    } catch (err) {
+      // "duplicate column name" — column already exists, safe to ignore
+      if (!err.message.includes('duplicate column name')) {
+        throw err
+      }
+    }
+  }
 
   console.log('Database initialised at', DB_PATH)
 }
