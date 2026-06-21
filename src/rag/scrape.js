@@ -106,9 +106,19 @@ async function scrapeWebsite(url) {
       if (!contentType.includes('text/html')) continue
 
       const $ = cheerio.load(response.data)
-      const text = extractText($)
+      let text = extractText($)
 
-      if (text.length > 100) {
+      // Fallback for SPAs (React/Vue) that have an empty body
+      if (text.length < 50) {
+        const title = $('title').text().trim()
+        const metaDesc = $('meta[name="description"]').attr('content') || $('meta[property="og:description"]').attr('content') || ''
+        const textFallback = `${title}\n${metaDesc}`.trim()
+        if (textFallback.length > 10) {
+          text = textFallback
+        }
+      }
+
+      if (text.length > 50) {
         textParts.push(`--- ${current} ---\n${text}`)
         scrapedUrls.push(current)
         totalChars += text.length

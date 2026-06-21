@@ -39,8 +39,9 @@ Vanilla JS widget on their website
 |------|---------|-----|
 | Server | express | Simple HTTP server |
 | PDF parsing | pdf-parse | Extracts text from PDF buffer |
-| OpenAI | openai | Embeddings + chat completions |
-| Bot metadata | better-sqlite3 | Stores company name, email, bot config |
+| Web Scraping | axios + cheerio | Crawl websites and extract clean text |
+| OpenRouter | openai | Embeddings + chat completions (via OpenRouter API) |
+| Bot metadata | better-sqlite3 | Stores company name, email, bot config, trial limits |
 | Vector data | Plain JSON files | One file per bot in /data/vectors/ |
 | File upload | multer | PDF upload |
 | IDs | uuid | Generate bot IDs |
@@ -61,13 +62,14 @@ resolve-rag-server/
 │   │   └── chat.js         # POST /api/chat/:botId
 │   ├── rag/
 │   │   ├── extract.js      # PDF text extraction
+│   │   ├── scrape.js       # Website crawler & HTML text extraction
 │   │   ├── chunk.js        # Text chunking
-│   │   ├── embed.js        # OpenAI embeddings
+│   │   ├── embed.js        # OpenRouter embeddings
 │   │   ├── search.js       # Cosine similarity search
 │   │   └── vectorStore.js  # Read/write JSON vector files
 │   ├── db/
 │   │   ├── database.js     # SQLite init
-│   │   └── bots.js         # Bot CRUD
+│   │   └── bots.js         # Bot CRUD + Token usage tracking
 │   └── middleware/
 │       └── upload.js       # Multer config
 ├── public/
@@ -88,7 +90,7 @@ resolve-rag-server/
 ```env
 PORT=4000
 NODE_ENV=production
-OPENAI_API_KEY=sk-...
+OPENROUTER_API_KEY=sk-or-v1-...
 WIDGET_HOST_URL=https://resolve.rearway.com/widget
 ```
 
@@ -105,9 +107,14 @@ CREATE TABLE IF NOT EXISTS bots (
   business_type TEXT,
   email TEXT NOT NULL,
   description TEXT,
+  website_url TEXT,
   chunk_count INTEGER DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  status TEXT DEFAULT 'active'
+  status TEXT DEFAULT 'active',
+  plan TEXT DEFAULT 'trial',
+  expires_at DATETIME,
+  token_usage INTEGER DEFAULT 0,
+  token_limit INTEGER DEFAULT 50000
 );
 ```
 
@@ -286,13 +293,17 @@ module.exports = { saveVectorStore, loadVectorStore }
 
 **Request:** `multipart/form-data`
 
-| Field | Type | Required |
-|-------|------|----------|
-| companyName | string | ✅ |
-| email | string | ✅ |
-| businessType | string | ❌ |
-| description | string | ❌ |
-| pdf | file (PDF, max 20MB) | ❌ |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| companyName | string | ✅ | Used for widget header |
+| email | string | ✅ | Contact email |
+| websiteUrl | string | ⭐️ | Scrape homepage + 10 links |
+| description | string | ⭐️ | Free-text context |
+| pdf | file (PDF) | ⭐️ | Max 20MB |
+| businessType | string | ❌ | Industry category |
+| plan | string | ❌ | `"trial"` (default) or `"paid"` |
+
+> *Note: At least one text source (websiteUrl, description, or pdf) must be provided.*
 
 **Logic in exact order:**
 
@@ -300,14 +311,15 @@ module.exports = { saveVectorStore, loadVectorStore }
 1. Validate: companyName and email required → 400 if missing
 2. Generate botId = uuid()
 3. Collect text sources:
-   a. If PDF uploaded: extractTextFromPdf(buffer) → add to textContent
-   b. If description provided: append to textContent
-   c. If neither → return 400 "Please provide a PDF or description"
+   a. If PDF uploaded: extractTextFromPdf(buffer)
+   b. If websiteUrl: scrapeWebsite(url) -> extracts text + crawls internal links
+   c. If description provided: append to text
+   d. If all empty → return 400 "Please provide a PDF, website URL, or description"
 
-4. Chunk the text: chunkText(textContent) → chunks[]
-5. Get embeddings: embedChunks(chunks) → embeddings[]
+4. Chunk the combined text: chunkText(textContent) → chunks[]
+5. Get embeddings via OpenRouter: embedChunks(chunks) → embeddings[]
 6. Save vector store: saveVectorStore(botId, chunks, embeddings)
-7. Save to SQLite: INSERT INTO bots (id, company_name, ...)
+7. Save to SQLite: INSERT INTO bots (..., plan='trial', token_limit=50000, expires_at=now+30d)
 8. Delete temp upload file
 
 9. Return:
@@ -315,7 +327,9 @@ module.exports = { saveVectorStore, loadVectorStore }
   "success": true,
   "botId": "uuid",
   "companyName": "Acme Corp",
+  "plan": "trial",
   "chunkCount": 42,
+  "pagesScraped": 3,
   "widgetSnippet": "<script src=\"...\">",
   "previewUrl": "https://resolve.rearway.com/widget/preview/uuid"
 }
@@ -334,21 +348,19 @@ module.exports = { saveVectorStore, loadVectorStore }
 
 ```
 1. Load bot from SQLite → 404 if not found
-2. Load vector store: loadVectorStore(botId) → 404 if not found
-3. Embed the user message: embedQuery(message) → queryVector
-4. Find relevant chunks: findRelevantChunks(queryVector, vectorStore, 4) → context[]
-5. Build prompt:
-   system: "You are a helpful assistant for {companyName}. Answer based ONLY on the context provided.
-            If you can't find the answer in the context, say so honestly."
+2. Trial Gates:
+   a. If plan == 'trial' && expires_at is past → return 402 "trial_expired"
+   b. If plan == 'trial' && token_usage >= token_limit → return 402 "token_limit_reached"
+3. Load vector store: loadVectorStore(botId) → 404 if not found
+4. Embed the user message: embedQuery(message) → queryVector
+5. Find relevant chunks: findRelevantChunks(queryVector, vectorStore, 4) → context[]
+6. Build prompt:
+   system: "You are a helpful assistant for {companyName}. Answer based ONLY on the context provided."
    user: "Context:\n{context.join('\n---\n')}\n\nQuestion: {message}"
 
-6. Call OpenAI chat completion:
-   model: "gpt-4o-mini"
-   messages: [systemMsg, userMsg]
-   max_tokens: 500
-   temperature: 0.3
-
-7. Return:
+7. Call OpenRouter chat completion (model: "openai/gpt-4o-mini")
+8. If plan == 'trial', track tokens: token_usage += completion.usage.total_tokens
+9. Return:
 { "answer": "response text", "sessionId": "uuid" }
 ```
 
@@ -356,9 +368,18 @@ module.exports = { saveVectorStore, loadVectorStore }
 
 ### `GET /api/bots/:botId`
 
-Returns bot metadata (public):
+Returns bot metadata (public). Includes trial token usage info for trial bots.
 ```json
-{ "botId": "uuid", "companyName": "Acme Corp", "status": "active" }
+{ 
+  "botId": "uuid", 
+  "companyName": "Acme Corp", 
+  "status": "active",
+  "plan": "trial",
+  "expiresAt": "2026-07-21T12:00:00.000Z",
+  "tokenUsage": 1250,
+  "tokenLimit": 50000,
+  "tokensRemaining": 48750
+}
 ```
 
 ### `GET /widget/widget.js`
