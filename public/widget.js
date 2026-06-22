@@ -349,6 +349,17 @@
         } catch (e) {
           appendMessage('bot', 'Sorry, something went wrong parsing the response.')
         }
+      } else if (xhr.status === 429) {
+        try {
+          var errorData = JSON.parse(xhr.responseText)
+          appendMessage('bot', errorData.message || 'Daily limit reached. Please try again tomorrow.')
+        } catch(e) {
+          appendMessage('bot', 'Daily message limit reached. Please try again tomorrow.')
+        }
+        // Disable the input area to prevent further typing
+        input.disabled = true;
+        input.placeholder = "Daily limit reached";
+        sendBtn.disabled = true;
       } else {
         appendMessage('bot', 'Sorry, I\'m having trouble connecting right now. Please try again.')
       }

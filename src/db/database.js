@@ -40,6 +40,17 @@ function initDatabase() {
     );
   `)
 
+  // Rate limiting table — IP and Bot ID tracking
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS daily_usage (
+      ip_address TEXT,
+      bot_id TEXT,
+      date TEXT,
+      message_count INTEGER DEFAULT 1,
+      PRIMARY KEY (ip_address, bot_id, date)
+    );
+  `)
+
   // Migration: safely add new columns to existing databases.
   // SQLite does not support ALTER TABLE ... ADD COLUMN IF NOT EXISTS,
   // so we attempt each column and swallow the "duplicate column" error.

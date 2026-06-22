@@ -6,6 +6,7 @@ const { findBotById, addTokenUsage } = require('../db/bots')
 const { loadVectorStore } = require('../rag/vectorStore')
 const { embedQuery } = require('../rag/embed')
 const { findRelevantChunks } = require('../rag/search')
+const { checkRateLimit } = require('../middleware/rateLimit')
 
 const router = express.Router()
 
@@ -28,7 +29,7 @@ function getOpenAI() {
 // POST /api/chat/:botId
 // Constraint #10: CORS is open on this endpoint since the widget runs on customer sites.
 //                 The global cors() middleware in server.js already covers this.
-router.post('/:botId', async (req, res) => {
+router.post('/:botId', checkRateLimit, async (req, res) => {
   const { botId } = req.params
   const { message, sessionId } = req.body
 
