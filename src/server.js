@@ -19,6 +19,13 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
+// Simple request logger
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} ${req.method} ${req.url}`)
+  next()
+})
+
+
 // Serve the public/ directory under /widget (widget.js + static assets)
 app.use('/widget', express.static(path.join(__dirname, '../public')))
 
