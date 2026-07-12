@@ -8,7 +8,7 @@ const MAX_CONTENT_CHARS = 200000 // ~200K chars before chunking
 
 // User-agent that most sites won't block
 const USER_AGENT =
-  'Mozilla/5.0 (compatible; ResolveBot/1.0; +https://resolve.rearway.com)'
+  'Mozilla/5.0 (compatible; ResolveBot/1.0; +https://resolveapi.rearway.com)'
 
 // Extract clean readable text from an HTML string using cheerio
 function extractText($) {

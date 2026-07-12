@@ -18,7 +18,7 @@ function getOpenAI() {
       apiKey: process.env.OPENROUTER_API_KEY,
       baseURL: 'https://openrouter.ai/api/v1',
       defaultHeaders: {
-        'HTTP-Referer': 'https://resolve.rearway.com',
+        'HTTP-Referer': 'https://resolveapi.rearway.com',
         'X-Title': 'Resolve RAG',
       },
     })
@@ -51,7 +51,7 @@ router.post('/:botId', checkRateLimit, async (req, res) => {
       return res.status(402).json({
         error: 'trial_expired',
         message: `This bot's trial period ended on ${new Date(bot.expires_at).toLocaleDateString()}. Please upgrade to continue.`,
-        upgradeUrl: 'https://rearway.com/resolve',
+        upgradeUrl: 'https://resolve.rearway.com/',
       })
     }
   }
@@ -62,7 +62,7 @@ router.post('/:botId', checkRateLimit, async (req, res) => {
       return res.status(402).json({
         error: 'token_limit_reached',
         message: `This bot has used its ${bot.token_limit.toLocaleString()} trial token allowance. Please upgrade to continue.`,
-        upgradeUrl: 'https://rearway.com/resolve',
+        upgradeUrl: 'https://resolve.rearway.com/',
       })
     }
   }

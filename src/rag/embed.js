@@ -13,7 +13,7 @@ function getClient() {
       apiKey: process.env.OPENROUTER_API_KEY,
       baseURL: 'https://openrouter.ai/api/v1',
       defaultHeaders: {
-        'HTTP-Referer': 'https://resolve.rearway.com',
+        'HTTP-Referer': 'https://resolveapi.rearway.com',
         'X-Title': 'Resolve RAG',
       },
     })
