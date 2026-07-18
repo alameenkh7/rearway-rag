@@ -1,98 +1,107 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Resolve RAG — Trial API (server/)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS Clean Architecture rewrite of the Resolve RAG backend, built for the
+Trial plan ahead of opening it to real paying-adjacent customers. Runs
+alongside the original Express app in `../src/` (untouched, not cut over) —
+see [`../ARCHITECTURE_AND_IMPLEMENTATION.md`](../ARCHITECTURE_AND_IMPLEMENTATION.md)
+for the full architecture reference and [`../docs/system-design-mvp.md`](../docs/system-design-mvp.md)
+for the original design.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+**Stack:** NestJS · TypeScript · Postgres + pgvector · Sequelize · JWT (OTP-based, passwordless) · Swagger · OpenRouter (`text-embedding-3-small`, `gpt-4o-mini`)
 
-## Description
+---
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## Quickstart
 
 ```bash
-$ npm install
+# 1. Start Postgres (pgvector-enabled, local dev only)
+docker compose up -d
+
+# 2. Install dependencies
+npm install
+
+# 3. Configure environment
+cp .env.example .env
+# fill in OPENROUTER_API_KEY at minimum — RESEND_API_KEY can stay blank,
+# OTP codes will print to the server console instead of emailing
+
+# 4. Run migrations
+npx sequelize-cli db:migrate
+
+# 5. Start the dev server (watch mode)
+npm run start:dev
 ```
 
-## Compile and run the project
+Server listens on `http://localhost:4001` by default (`PORT` in `.env`).
+Interactive API docs: **http://localhost:4001/api/docs**
 
-```bash
-# development
-$ npm run start
+---
 
-# watch mode
-$ npm run start:dev
+## Environment variables
 
-# production mode
-$ npm run start:prod
+| Variable | Description |
+|---|---|
+| `PORT` | HTTP port (default `4001`) |
+| `DATABASE_URL` | Postgres connection string — local dev points at the docker-compose container, production points at Neon (or similar) |
+| `OPENROUTER_API_KEY` | Required — used for both embeddings and chat completions |
+| `RESEND_API_KEY` | Optional — if blank, OTP codes are logged to the console instead of emailed |
+| `EMAIL_FROM` | From-address for OTP emails |
+| `AUTH_JWT_SECRET` | Signs verification tokens and session tokens |
+| `WIDGET_HOST_URL` | Base URL used to build the `widgetSnippet`/`previewUrl` returned from bot creation |
+| `WHITELISTED_IPS` | Comma-separated IPs exempt from rate limiting |
+| `DAILY_LIMIT` | Override the default 15-messages/day/IP trial rate limit |
+
+---
+
+## API summary
+
+Full request/response shapes are in Swagger (`/api/docs`) or
+`ARCHITECTURE_AND_IMPLEMENTATION.md` §4.4. In order of use:
+
+```
+POST /api/v1/auth/otp/request    {email}
+POST /api/v1/auth/otp/verify     {email, code}                    → verificationToken
+POST /api/v1/bots                multipart: companyName + pdf/websiteUrl/description
+                                  (Authorization: Bearer <verificationToken>)
+                                  → botId, embedToken, widgetSnippet, previewUrl
+GET  /api/v1/bots/:botId
+POST /api/v1/bots/:botId/session (X-Embed-Token)                  → sessionToken
+POST /api/v1/bots/:botId/chat    {message}
+                                  (X-Embed-Token, Authorization: Bearer <sessionToken>)
+                                  → {type:"answer"|"fallback", ...}
 ```
 
-## Run tests
+---
 
-```bash
-# unit tests
-$ npm run test
+## Project structure
 
-# e2e tests
-$ npm run test:e2e
+Clean Architecture per `../docs/coding_standards.md`:
 
-# test coverage
-$ npm run test:cov
+```
+src/
+├── core/                # entities, entitygateway (ports), usecases — zero framework deps
+├── infrastructure/       # Sequelize persistence, Auth guards/JWT, LLM, Email, Ingestion, Cron
+├── gateways/http/        # controllers, DTOs, Swagger setup
+├── coreadapter/          # the one place infra gets wired into core's Deps
+├── codecs/               # shared string-literal enums
+└── shared/               # BaseError + domain errors, cross-cutting decorators
 ```
 
-## Deployment
+---
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## Nightly purge job
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Trial bots older than 15 days are hard-deleted (bot, sessions, messages,
+chunks — via `ON DELETE CASCADE`) by a `@nestjs/schedule` cron running at
+3am server time (`infrastructure/Cron/purge-cron.service.ts`). The
+`retention_leads` table is never touched by this job — see
+`ARCHITECTURE_AND_IMPLEMENTATION.md` for why.
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+---
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## What's not built yet
 
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Instant plan (dashboard, WhatsApp handoff), Business plan (custom API
+integrations), and an automated test suite — see
+`ARCHITECTURE_AND_IMPLEMENTATION.md` §5 for the full list of known
+limitations and next steps.

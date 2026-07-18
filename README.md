@@ -3,6 +3,15 @@
 Lightweight, custom-built RAG (Retrieval-Augmented Generation) backend + embeddable widget.  
 **No Flowise. No vector DB. No TypeScript. Just Node.js.**
 
+> **Note:** This is the original proof-of-concept app (SQLite + flat JSON
+> vector files, no auth). It still runs independently and is documented
+> below as-is. A production-track rewrite — NestJS, Postgres/pgvector, OTP
+> auth, embed-token-protected chat, confidence-gated fallback — lives in
+> [`server/`](server/README.md) and has not been cut over yet. See
+> [`ARCHITECTURE_AND_IMPLEMENTATION.md`](ARCHITECTURE_AND_IMPLEMENTATION.md)
+> for the full design/build reference and [`docs/system-design-mvp.md`](docs/system-design-mvp.md)
+> for the original target design.
+
 ---
 
 ## Requirements
