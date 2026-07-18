@@ -10,6 +10,7 @@
 
   var BOT_ID = scriptTag.getAttribute('data-bot-id') || ''
   var COMPANY = scriptTag.getAttribute('data-company') || 'Assistant'
+  var EMBED_TOKEN = scriptTag.getAttribute('data-embed-token') || ''
 
   // Derive the API base from the script src so the widget works in any env
   // e.g. https://resolve.rearway.com/widget/widget.js  →  https://resolve.rearway.com
@@ -19,8 +20,9 @@
     API_BASE = window.location.origin
   }
 
-  // Random session ID — persists for the lifetime of this page load
-  var SESSION_ID = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36)
+  // Issued by POST /bots/:botId/session on load — no longer client-generated
+  var SESSION_ID = ''
+  var SESSION_TOKEN = ''
 
   // ─── Create Shadow DOM host ──────────────────────────────────────────────────
   var host = document.createElement('div')
@@ -132,6 +134,13 @@
       color:#fff;
       border-bottom-right-radius:4px;
     }
+    .rw-msg.fallback{
+      align-self:flex-start;
+      background:#fff7ed;color:#7c2d12;
+      border:1px solid #fed7aa;
+      border-bottom-left-radius:4px;
+    }
+    .rw-msg.fallback a{color:#c2410c;font-weight:600;}
 
     /* ── Typing indicator ── */
     #rw-typing{
@@ -293,6 +302,24 @@
     messages.scrollTop = messages.scrollHeight
   }
 
+  // Fallback message + contact email are admin-supplied, so this builds the
+  // DOM via textContent/property assignment rather than string-concatenated
+  // HTML, even though the mailto link itself is a nice-to-have, not user input.
+  function appendFallbackMessage(text, contactEmail) {
+    var el = document.createElement('div')
+    el.className = 'rw-msg fallback'
+    el.appendChild(document.createTextNode(text))
+    if (contactEmail) {
+      el.appendChild(document.createElement('br'))
+      var link = document.createElement('a')
+      link.href = 'mailto:' + contactEmail
+      link.textContent = contactEmail
+      el.appendChild(link)
+    }
+    messages.appendChild(el)
+    messages.scrollTop = messages.scrollHeight
+  }
+
   // ─── Typing indicator ────────────────────────────────────────────────────────
   function showTyping() {
     typingEl.classList.add('visible')
@@ -319,7 +346,38 @@
 
   sendBtn.addEventListener('click', sendMessage)
 
+  // ─── Start a chat session ────────────────────────────────────────────────────
+  // Called once on script load, and again (once) if a chat call comes back
+  // 401 with an expired/invalid session token.
+  function startSession(callback) {
+    var xhr = new XMLHttpRequest()
+    xhr.open('POST', API_BASE + '/api/v1/bots/' + BOT_ID + '/session', true)
+    xhr.setRequestHeader('X-Embed-Token', EMBED_TOKEN)
+    xhr.onload = function () {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          var data = JSON.parse(xhr.responseText)
+          SESSION_ID = data.data.sessionId
+          SESSION_TOKEN = data.data.sessionToken
+          callback(true)
+        } catch (e) {
+          callback(false)
+        }
+      } else {
+        callback(false)
+      }
+    }
+    xhr.onerror = function () {
+      callback(false)
+    }
+    xhr.send()
+  }
+
   // ─── Send message ────────────────────────────────────────────────────────────
+  // Public entry point (click/Enter): reads + clears the input, then hands
+  // the captured text to doSend. doSend takes text explicitly (rather than
+  // re-reading input.value) so the 401-retry path resends the exact same
+  // message after the input field has already been cleared.
   function sendMessage() {
     var text = input.value.trim()
     if (!text || isBusy) return
@@ -327,39 +385,83 @@
     appendMessage('user', text)
     input.value = ''
     input.style.height = 'auto'
+    doSend(text, false)
+  }
+
+  function doSend(text, isRetry) {
     isBusy = true
     sendBtn.disabled = true
     showTyping()
 
-    var payload = JSON.stringify({ message: text, sessionId: SESSION_ID })
+    var payload = JSON.stringify({ message: text })
 
     var xhr = new XMLHttpRequest()
-    xhr.open('POST', API_BASE + '/api/chat/' + BOT_ID, true)
+    xhr.open('POST', API_BASE + '/api/v1/bots/' + BOT_ID + '/chat', true)
     xhr.setRequestHeader('Content-Type', 'application/json')
+    xhr.setRequestHeader('X-Embed-Token', EMBED_TOKEN)
+    xhr.setRequestHeader('Authorization', 'Bearer ' + SESSION_TOKEN)
 
     xhr.onload = function () {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        hideTyping()
+        isBusy = false
+        sendBtn.disabled = false
+        try {
+          var data = JSON.parse(xhr.responseText)
+          if (data.type === 'fallback') {
+            appendFallbackMessage(data.fallback.message, data.fallback.contactEmail)
+          } else {
+            appendMessage('bot', data.answer || 'Sorry, I couldn\'t get a response.')
+          }
+        } catch (e) {
+          appendMessage('bot', 'Sorry, something went wrong parsing the response.')
+        }
+        input.focus()
+        return
+      }
+
+      if (xhr.status === 401 && !isRetry) {
+        // Session token expired/invalid — get a fresh one and retry this
+        // exact message once before giving up.
+        isBusy = false
+        startSession(function (ok) {
+          if (ok) {
+            doSend(text, true)
+          } else {
+            hideTyping()
+            sendBtn.disabled = false
+            appendMessage('bot', 'Sorry, I\'m having trouble connecting right now. Please try again.')
+            input.focus()
+          }
+        })
+        return
+      }
+
       hideTyping()
       isBusy = false
       sendBtn.disabled = false
 
-      if (xhr.status >= 200 && xhr.status < 300) {
+      if (xhr.status === 402) {
         try {
-          var data = JSON.parse(xhr.responseText)
-          appendMessage('bot', data.answer || 'Sorry, I couldn\'t get a response.')
+          var expiredData = JSON.parse(xhr.responseText)
+          appendMessage('bot', expiredData.message || 'This trial has ended. Please upgrade to continue.')
         } catch (e) {
-          appendMessage('bot', 'Sorry, something went wrong parsing the response.')
+          appendMessage('bot', 'This trial has ended. Please upgrade to continue.')
         }
+        input.disabled = true
+        input.placeholder = 'This trial has ended'
+        sendBtn.disabled = true
       } else if (xhr.status === 429) {
         try {
           var errorData = JSON.parse(xhr.responseText)
           appendMessage('bot', errorData.message || 'Daily limit reached. Please try again tomorrow.')
-        } catch(e) {
+        } catch (e) {
           appendMessage('bot', 'Daily message limit reached. Please try again tomorrow.')
         }
         // Disable the input area to prevent further typing
-        input.disabled = true;
-        input.placeholder = "Daily limit reached";
-        sendBtn.disabled = true;
+        input.disabled = true
+        input.placeholder = 'Daily limit reached'
+        sendBtn.disabled = true
       } else {
         appendMessage('bot', 'Sorry, I\'m having trouble connecting right now. Please try again.')
       }
@@ -377,5 +479,19 @@
 
     xhr.send(payload)
   }
+
+  // ─── Establish the session before the widget accepts input ──────────────────
+  input.disabled = true
+  sendBtn.disabled = true
+  input.placeholder = 'Connecting…'
+  startSession(function (ok) {
+    if (ok) {
+      input.disabled = false
+      sendBtn.disabled = false
+      input.placeholder = 'Ask me anything…'
+    } else {
+      input.placeholder = 'Connection error — please refresh'
+    }
+  })
 
 })()

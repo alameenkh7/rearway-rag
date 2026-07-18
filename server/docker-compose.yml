@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: resolve
+      POSTGRES_PASSWORD: resolve_dev_password
+      POSTGRES_DB: resolve_rag_dev
+    ports:
+      - '5434:5432'
+    volumes:
+      - resolve_pgdata:/var/lib/postgresql/data
+
+volumes:
+  resolve_pgdata:

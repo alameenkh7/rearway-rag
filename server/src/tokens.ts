@@ -1,0 +1,17 @@
+export const CoreS = Symbol('core')
+export const LoggerS = Symbol('logger')
+
+export const AdminUserPersistenceS = Symbol('admin-user-persistence')
+export const BotPersistenceS = Symbol('bot-persistence')
+export const ChunkPersistenceS = Symbol('chunk-persistence')
+export const SessionPersistenceS = Symbol('session-persistence')
+export const MessagePersistenceS = Symbol('message-persistence')
+export const RetentionLeadPersistenceS = Symbol('retention-lead-persistence')
+export const DailyUsagePersistenceS = Symbol('daily-usage-persistence')
+export const TransactionManagerS = Symbol('transaction-manager')
+
+export const EmailServiceS = Symbol('email-service')
+export const TokenServiceS = Symbol('token-service')
+export const LlmServiceS = Symbol('llm-service')
+export const ScrapingServiceS = Symbol('scraping-service')
+export const PdfExtractionServiceS = Symbol('pdf-extraction-service')
