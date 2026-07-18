@@ -26,6 +26,14 @@ import { RetentionLeadModel } from './infrastructure/SequelizePersistence/models
     SequelizeModule.forRoot({
       dialect: 'postgres',
       uri: process.env.DATABASE_URL,
+      // DATABASE_SSL is an explicit toggle, independent of NODE_ENV — see
+      // the matching comment in SequelizePersistence/config/config.js.
+      // Without this, the app connects fine locally but fails on any
+      // managed Postgres (Neon, RDS, etc.) that requires an encrypted
+      // connection, with a "no pg_hba.conf entry ... no encryption" error.
+      ...(process.env.DATABASE_SSL === 'true'
+        ? { dialectOptions: { ssl: { require: true, rejectUnauthorized: false } } }
+        : {}),
       models: [
         AdminUserModel,
         BotModel,
