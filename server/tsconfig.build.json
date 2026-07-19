@@ -1,4 +1,12 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+  // rootDir is pinned rather than inferred. tsc otherwise derives it from the
+  // common ancestor of all inputs, so a single .ts file outside src/ silently
+  // relocates the whole build from dist/main.js to dist/src/main.js — which
+  // breaks pm2's entry point with a MODULE_NOT_FOUND at startup. Pinned, tsc
+  // fails loudly at build time instead of shipping a rearranged dist.
+  "compilerOptions": {
+    "rootDir": "./src"
+  },
+  "exclude": ["node_modules", "test", "dist", "scripts", "**/*spec.ts"]
 }
