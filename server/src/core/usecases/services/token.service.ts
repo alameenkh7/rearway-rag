@@ -30,3 +30,12 @@ export function generateEmbedToken(): string {
 export function hashSessionToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex')
 }
+
+// Constant-time token comparison — same guarantee EmbedTokenGuard relies on,
+// shared here so use cases don't hand-roll a `!==` that leaks timing.
+export function safeCompareToken(a: string, b: string): boolean {
+  const bufA = Buffer.from(a)
+  const bufB = Buffer.from(b)
+  if (bufA.length !== bufB.length) return false
+  return crypto.timingSafeEqual(bufA, bufB)
+}

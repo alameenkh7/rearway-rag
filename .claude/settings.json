@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(docker exec *)",
-      "Bash(kill -9 79352 79321)"
+      "Bash(kill -9 79352 79321)",
+      "Read(//home/alameen/dev/resolve/src/pages/**)"
     ]
   }
 }

@@ -133,7 +133,11 @@ export function makeUC(deps: Deps) {
     })
 
     const widgetSnippet = `<script src="${input.widgetHostUrl}/widget.js" data-bot-id="${bot.id}" data-embed-token="${embedToken}" data-company="${bot.companyName}" defer></script>`
-    const previewUrl = `${input.widgetHostUrl}/preview/${bot.id}`
+    // Capability URL — the embed token is part of the link, so possession of
+    // the full URL is what grants preview access. A botId on its own must not
+    // be enough, or the preview page would hand out the embed token to anyone
+    // who guessed/learned a bot id.
+    const previewUrl = `${input.widgetHostUrl}/preview/${bot.id}?token=${encodeURIComponent(embedToken)}`
 
     return {
       message: 'Bot created successfully',

@@ -22,6 +22,11 @@ import { RetentionLeadModel } from './infrastructure/SequelizePersistence/models
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', '..', 'public'),
       serveRoot: '/widget',
+      // Without this, any unmatched /widget/* path (e.g. /widget/preview/:id,
+      // which is a real controller route) falls through to serving
+      // public/index.html — which doesn't exist, producing a confusing ENOENT
+      // 404 instead of letting the router handle the request.
+      serveStaticOptions: { index: false, fallthrough: true },
     }),
     SequelizeModule.forRoot({
       dialect: 'postgres',

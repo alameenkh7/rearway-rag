@@ -7,6 +7,7 @@ import * as StartSession from './commands/StartSession'
 import * as SendMessage from './commands/SendMessage'
 import * as PurgeExpiredTrials from './commands/PurgeExpiredTrials'
 import * as GetBotStatus from './queries/GetBotStatus'
+import * as GetBotPreview from './queries/GetBotPreview'
 
 export function initUseCases(deps: Deps) {
   const requestOtp = wrapUC(
@@ -58,8 +59,15 @@ export function initUseCases(deps: Deps) {
     ...defaultWrappers
   )
 
+  const getBotPreview = wrapUC(
+    deps,
+    GetBotPreview.makeUC(deps),
+    GetBotPreview.name,
+    ...defaultWrappers
+  )
+
   return {
-    queries: { getBotStatus },
+    queries: { getBotStatus, getBotPreview },
     commands: {
       requestOtp,
       verifyOtp,

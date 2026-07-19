@@ -48,7 +48,11 @@ function redact(value: unknown, depth = 0): unknown {
   if (value && typeof value === 'object') {
     const out: Record<string, unknown> = {}
     for (const [key, val] of Object.entries(value)) {
-      out[key] = SENSITIVE_KEY_PATTERN.test(key) ? '[redacted]' : redact(val, depth + 1)
+      // Only mask keys that actually carry a value — masking an absent field
+      // makes logs lie (e.g. an omitted pdfBuffer reading as "[redacted]",
+      // which looks like a PDF was uploaded when none was).
+      const isSensitive = SENSITIVE_KEY_PATTERN.test(key) && val !== undefined && val !== null
+      out[key] = isSensitive ? '[redacted]' : redact(val, depth + 1)
     }
     return out
   }

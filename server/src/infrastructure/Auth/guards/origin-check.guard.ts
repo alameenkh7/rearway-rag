@@ -31,8 +31,18 @@ export class OriginCheckGuard implements CanActivate {
       throw new OriginNotAllowedError()
     }
 
-    if (requestHostname !== botHostname) throw new OriginNotAllowedError()
+    if (requestHostname === botHostname) return true
 
-    return true
+    // Always allow our own origin. The hosted preview page
+    // (/widget/preview/:botId) is served from this API's own host, so its
+    // widget calls carry Origin: <this host> — which will never match the
+    // customer's registered websiteUrl. Without this, previewing a bot that
+    // registered a website would always 403.
+    const selfHost = request.headers.host
+    if (selfHost && normalizeHostname(selfHost.split(':')[0]) === requestHostname) {
+      return true
+    }
+
+    throw new OriginNotAllowedError()
   }
 }

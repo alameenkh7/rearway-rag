@@ -153,3 +153,18 @@ export class IngestionFailedError extends BaseError {
     super('INGESTION_FAILED', 422, message)
   }
 }
+
+// The upstream LLM provider (OpenRouter) rejected the request or is
+// unreachable — e.g. a bad/expired API key, quota exhaustion, or an outage.
+// This is our problem, not the caller's, but surfacing it as a typed 503 gives
+// the frontend something actionable instead of an opaque 500 stack trace.
+export class LlmServiceUnavailableError extends BaseError {
+  constructor(details?: string) {
+    super(
+      'LLM_SERVICE_UNAVAILABLE',
+      503,
+      "We couldn't process your content right now. Please try again in a moment.",
+      details ? { details } : undefined,
+    )
+  }
+}

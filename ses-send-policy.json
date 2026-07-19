@@ -4,7 +4,10 @@
     {
       "Effect": "Allow",
       "Action": ["ses:SendEmail", "ses:SendRawEmail"],
-      "Resource": "arn:aws:ses:ap-south-1:414397229292:identity/resolve.rearway.com"
+      "Resource": [
+        "arn:aws:ses:ap-south-1:414397229292:identity/resolve.rearway.com",
+        "arn:aws:ses:ap-south-1:414397229292:configuration-set/my-first-configuration-set"
+      ]
     }
   ]
 }
