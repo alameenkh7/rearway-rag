@@ -19,16 +19,14 @@ export class CreateBotDTO {
   websiteUrl?: string
 
   @ApiPropertyOptional({
-    description:
-      'Manual business description, used alongside or instead of a PDF/website',
+    description: 'Manual business description, used alongside or instead of a PDF/website',
   })
   @IsOptional()
   @IsString()
   description?: string
 
   @ApiPropertyOptional({
-    description:
-      "Custom message shown when the bot can't answer from its content",
+    description: "Custom message shown when the bot can't answer from its content",
   })
   @IsOptional()
   @IsString()

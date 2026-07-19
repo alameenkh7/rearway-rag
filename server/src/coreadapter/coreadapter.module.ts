@@ -29,13 +29,14 @@ import { MessagePersistenceService } from '../infrastructure/SequelizePersistenc
 import { DailyUsagePersistenceService } from '../infrastructure/SequelizePersistence/daily-usage-persistence.service'
 import { RetentionLeadPersistenceService } from '../infrastructure/SequelizePersistence/retention-lead-persistence.service'
 import { SequelizeTransactionManager } from '../infrastructure/SequelizePersistence/transaction-manager.service'
-import { ResendEmailService } from '../infrastructure/Email/resend-email.service'
+// import { ResendEmailService } from '../infrastructure/Email/resend-email.service'
 import { LoggerService } from '../infrastructure/Logger/logger.service'
 import { JwtTokenService } from '../infrastructure/Auth/token-service.service'
 import { OpenRouterService } from '../infrastructure/LLM/open-router.service'
 import { ScrapingServiceImpl } from '../infrastructure/Ingestion/scraping.service'
 import { PdfExtractionServiceImpl } from '../infrastructure/Ingestion/pdf-extraction.service'
 import { coreAdapterService } from './coreadapter.service'
+import { SesEmailService } from '../infrastructure/Email/ses-email.service'
 
 @Module({
   imports: [
@@ -49,7 +50,7 @@ import { coreAdapterService } from './coreadapter.service'
   ],
   providers: [
     { provide: LoggerS, useClass: LoggerService },
-    { provide: EmailServiceS, useClass: ResendEmailService },
+    { provide: EmailServiceS, useClass: SesEmailService },
     { provide: TokenServiceS, useClass: JwtTokenService },
     { provide: AdminUserPersistenceS, useClass: AdminUserPersistenceService },
     { provide: BotPersistenceS, useClass: BotPersistenceService },
@@ -67,11 +68,6 @@ import { coreAdapterService } from './coreadapter.service'
     { provide: TransactionManagerS, useClass: SequelizeTransactionManager },
     coreAdapterService,
   ],
-  exports: [
-    coreAdapterService,
-    BotPersistenceS,
-    SessionPersistenceS,
-    DailyUsagePersistenceS,
-  ],
+  exports: [coreAdapterService, BotPersistenceS, SessionPersistenceS, DailyUsagePersistenceS],
 })
 export class CoreadapterModule {}

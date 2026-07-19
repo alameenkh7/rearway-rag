@@ -12,7 +12,6 @@ export class BotStatusResponseDTO {
   @ApiProperty()
   companyName: string
 
-  @ApiPropertyOptional()
   businessType?: string
 
   @ApiPropertyOptional()

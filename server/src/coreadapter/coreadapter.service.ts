@@ -48,7 +48,7 @@ export const coreAdapterService: FactoryProvider = {
     llmService: OpenRouterService,
     scrapingService: ScrapingServiceImpl,
     pdfExtractionService: PdfExtractionServiceImpl,
-    transactionManager: SequelizeTransactionManager
+    transactionManager: SequelizeTransactionManager,
   ): UseCases =>
     initUseCases({
       logger,

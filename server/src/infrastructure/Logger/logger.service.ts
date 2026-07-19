@@ -16,4 +16,8 @@ export class LoggerService implements Logger {
   warn(message: string, context?: string): void {
     this.nestLogger.warn(message, context)
   }
+
+  debug(message: string, context?: string): void {
+    this.nestLogger.debug(message, context)
+  }
 }

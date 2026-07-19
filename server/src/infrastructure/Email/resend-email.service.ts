@@ -15,19 +15,34 @@ export class ResendEmailService implements EmailService {
   }
 
   async sendOtpEmail(email: string, code: string): Promise<void> {
-    // No RESEND_API_KEY configured yet — dev-only fallback so the OTP flow is
-    // testable end-to-end before a real Resend account is wired in. Never
-    // silently no-ops: the code always lands somewhere it can be read.
     if (!this.client) {
+      // No RESEND_API_KEY configured. In production this must fail loudly —
+      // silently console-logging while returning "sent" is exactly the
+      // fake-success trap that hid the "no email ever delivered" problem.
+      // In dev, keep the console fallback so local testing works without a key.
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          'RESEND_API_KEY is not set — cannot send OTP email in production. ' +
+            'Set it in the environment (see .env.example).'
+        )
+      }
       this.logger.warn(`RESEND_API_KEY not set — OTP for ${email} is: ${code}`)
       return
     }
 
-    await this.client.emails.send({
+    const { error } = await this.client.emails.send({
       from: this.from,
       to: email,
       subject: 'Your verification code',
       html: `<p>Your Resolve verification code is:</p><p style="font-size:24px;font-weight:bold;letter-spacing:4px;">${code}</p><p>This code expires in 10 minutes.</p>`,
     })
+
+    // Resend's SDK returns errors in the response body rather than throwing —
+    // surface them so a rejected/failed send doesn't look like a success.
+    if (error) {
+      throw new Error(
+        `Resend failed to send OTP email: ${error.name} — ${error.message}`
+      )
+    }
   }
 }

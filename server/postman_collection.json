@@ -1,0 +1,193 @@
+{
+  "info": {
+    "name": "Resolve RAG — Trial API",
+    "description": "NestJS Trial-plan API. Requests are ordered top-to-bottom by dependency — run them in sequence (or use Collection Runner) since each one's test script saves the token/id the next request needs into collection variables. Base URL defaults to production; switch the `baseUrl` variable to http://localhost:4001 for local dev.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://resolveapi.rearway.com" },
+    { "key": "email", "value": "postman-test@example.com" },
+    { "key": "otpCode", "value": "" },
+    { "key": "verificationToken", "value": "" },
+    { "key": "botId", "value": "" },
+    { "key": "embedToken", "value": "" },
+    { "key": "sessionId", "value": "" },
+    { "key": "sessionToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "1. Request OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201))",
+                  "console.log('Check your email (or the server log/console if RESEND_API_KEY is unset) for the 6-digit code, then set the {{otpCode}} collection variable before running the next request.')"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/otp/request", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "otp", "request"] }
+          }
+        },
+        {
+          "name": "2. Verify OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201))",
+                  "const body = pm.response.json()",
+                  "if (body?.data?.verificationToken) {",
+                  "  pm.collectionVariables.set('verificationToken', body.data.verificationToken)",
+                  "  console.log('Saved verificationToken')",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"{{otpCode}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/otp/verify", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "otp", "verify"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bots",
+      "item": [
+        {
+          "name": "3. Create Bot",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201))",
+                  "const body = pm.response.json()",
+                  "if (body?.data?.botId) pm.collectionVariables.set('botId', body.data.botId)",
+                  "if (body?.data?.embedToken) pm.collectionVariables.set('embedToken', body.data.embedToken)",
+                  "console.log('Saved botId + embedToken — embedToken is only ever returned here, once.')"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{verificationToken}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "companyName", "value": "Postman Test Co", "type": "text" },
+                { "key": "businessType", "value": "Retail", "type": "text", "disabled": true },
+                { "key": "websiteUrl", "value": "https://example.com", "type": "text", "disabled": true },
+                { "key": "description", "value": "We are open 9am-6pm daily and sell coffee for 3 dollars.", "type": "text" },
+                { "key": "fallbackMessage", "value": "", "type": "text", "disabled": true },
+                { "key": "contactEmail", "value": "", "type": "text", "disabled": true },
+                { "key": "pdf", "type": "file", "src": [], "disabled": true }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/bots", "host": ["{{baseUrl}}"], "path": ["api", "v1", "bots"] }
+          }
+        },
+        {
+          "name": "4. Get Bot Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/bots/{{botId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "bots", "{{botId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sessions",
+      "item": [
+        {
+          "name": "5. Start Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201))",
+                  "const body = pm.response.json()",
+                  "if (body?.data?.sessionId) pm.collectionVariables.set('sessionId', body.data.sessionId)",
+                  "if (body?.data?.sessionToken) pm.collectionVariables.set('sessionToken', body.data.sessionToken)",
+                  "console.log('Saved sessionId + sessionToken')"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Embed-Token", "value": "{{embedToken}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/bots/{{botId}}/session", "host": ["{{baseUrl}}"], "path": ["api", "v1", "bots", "{{botId}}", "session"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "6. Send Message (in-scope)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Embed-Token", "value": "{{embedToken}}" },
+              { "key": "Authorization", "value": "Bearer {{sessionToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"What time do you open?\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/bots/{{botId}}/chat", "host": ["{{baseUrl}}"], "path": ["api", "v1", "bots", "{{botId}}", "chat"] }
+          }
+        },
+        {
+          "name": "7. Send Message (out-of-scope, expect fallback)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Embed-Token", "value": "{{embedToken}}" },
+              { "key": "Authorization", "value": "Bearer {{sessionToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"What is the capital of France?\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/bots/{{botId}}/chat", "host": ["{{baseUrl}}"], "path": ["api", "v1", "bots", "{{botId}}", "chat"] }
+          }
+        }
+      ]
+    }
+  ]
+}

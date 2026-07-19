@@ -34,13 +34,7 @@ import { RetentionLeadModel } from './infrastructure/SequelizePersistence/models
       ...(process.env.DATABASE_SSL === 'true'
         ? { dialectOptions: { ssl: { require: true, rejectUnauthorized: false } } }
         : {}),
-      models: [
-        AdminUserModel,
-        BotModel,
-        SessionModel,
-        MessageModel,
-        RetentionLeadModel,
-      ],
+      models: [AdminUserModel, BotModel, SessionModel, MessageModel, RetentionLeadModel],
       autoLoadModels: true,
       synchronize: false, // schema is owned entirely by sequelize-cli migrations
       logging: false,
