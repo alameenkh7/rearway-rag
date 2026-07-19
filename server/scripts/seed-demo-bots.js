@@ -14,8 +14,27 @@
 require('reflect-metadata')
 const { createNamespace } = require('cls-hooked')
 const { Sequelize } = require('sequelize-typescript')
-const { readFileSync } = require('fs')
+const { readFileSync, existsSync } = require('fs')
 const { join } = require('path')
+
+// The compiled layout differs per environment: a build of src/ alone emits
+// dist/app.module.js, but once tsc also compiles scripts/ it adds the common
+// parent and emits dist/src/app.module.js instead. Both shapes exist in the
+// wild (local is flat, the EC2 deploy is nested), so probe rather than assume —
+// hardcoding either one breaks the moment the two drift again.
+const DIST = [
+  join(__dirname, '..', 'dist'),
+  join(__dirname, '..', 'dist', 'src'),
+].find(dir => existsSync(join(dir, 'app.module.js')))
+
+if (!DIST) {
+  console.error(
+    'No compiled app found. Looked for app.module.js in ../dist and ' +
+      '../dist/src. Run `npm run build` first, and run this script from the ' +
+      'server/ directory.'
+  )
+  process.exit(1)
+}
 
 // Must precede the AppModule require, exactly as in main.ts — chunk
 // persistence uses raw sequelize.query and joins the ambient CLS transaction.
@@ -23,14 +42,14 @@ Sequelize.useCLS(createNamespace('resolve-rag-transactions'))
 
 const { NestFactory } = require('@nestjs/core')
 const { getModelToken } = require('@nestjs/sequelize')
-const { AppModule } = require('../dist/app.module')
-const { CoreS } = require('../dist/tokens')
+const { AppModule } = require(join(DIST, 'app.module'))
+const { CoreS } = require(join(DIST, 'tokens'))
 const {
   AdminUserModel,
-} = require('../dist/infrastructure/SequelizePersistence/models/AdminUserModel')
+} = require(join(DIST, 'infrastructure/SequelizePersistence/models/AdminUserModel'))
 const {
   BotModel,
-} = require('../dist/infrastructure/SequelizePersistence/models/BotModel')
+} = require(join(DIST, 'infrastructure/SequelizePersistence/models/BotModel'))
 
 const DEMO_ADMIN_EMAIL = 'demo@rearway.com'
 
