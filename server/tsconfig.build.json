@@ -6,7 +6,12 @@
   // breaks pm2's entry point with a MODULE_NOT_FOUND at startup. Pinned, tsc
   // fails loudly at build time instead of shipping a rearranged dist.
   "compilerOptions": {
-    "rootDir": "./src"
+    "rootDir": "./src",
+    // Pinned inside dist so `rm -rf dist` also resets the incremental state.
+    // Left to its default location (next to this file), a stale .tsbuildinfo
+    // survives the wipe and convinces tsc the build is current — producing
+    // "Found 0 errors" with an empty dist/ and no main.js to start.
+    "tsBuildInfoFile": "./dist/tsconfig.build.tsbuildinfo"
   },
   "exclude": ["node_modules", "test", "dist", "scripts", "**/*spec.ts"]
 }
