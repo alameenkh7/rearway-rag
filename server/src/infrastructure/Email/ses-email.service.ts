@@ -10,9 +10,6 @@ export class SesEmailService implements EmailService {
 
   constructor() {
     const region = process.env.AWS_SES_REGION ?? process.env.AWS_REGION
-    // Credentials are picked up from the standard AWS provider chain
-    // (env vars, shared config file, ECS/EC2 instance role, etc.) unless
-    // explicitly provided here.
     const accessKeyId = process.env.AWS_ACCESS_KEY_ID
     const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY
 
@@ -25,7 +22,9 @@ export class SesEmailService implements EmailService {
         })
       : null
 
-    this.from = process.env.EMAIL_FROM ?? 'Resolve <onboarding@resolve.rearway.com>'
+    const fromAddress = process.env.EMAIL_FROM_ADDRESS ?? 'onboarding@resolve.rearway.com'
+    const fromName = process.env.EMAIL_FROM_NAME ?? 'Resolve'
+    this.from = `${fromName} <${fromAddress}>`
   }
 
   async sendOtpEmail(email: string, code: string): Promise<void> {
