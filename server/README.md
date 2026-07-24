@@ -61,7 +61,7 @@ Full request/response shapes are in Swagger (`/api/docs`) or
 ```
 POST /api/v1/auth/otp/request    {email}
 POST /api/v1/auth/otp/verify     {email, code}                    → verificationToken
-POST /api/v1/bots                multipart: companyName + pdf/websiteUrl/description
+POST /api/v1/bots                multipart: companyName + pdf/websiteUrl/description/allowedOrigins
                                   (Authorization: Bearer <verificationToken>)
                                   → botId, embedToken, widgetSnippet, previewUrl
 GET  /api/v1/bots/:botId
@@ -70,6 +70,23 @@ POST /api/v1/bots/:botId/chat    {message}
                                   (X-Embed-Token, Authorization: Bearer <sessionToken>)
                                   → {type:"answer"|"fallback", ...}
 ```
+
+### Widget embed origin checks
+
+`POST /:botId/session` (called once by `widget.js` on load) is guarded by
+`OriginCheckGuard`, which only allows the request through if its `Origin`/`Referer`
+hostname matches the bot's registered `websiteUrl` or one of its `allowedOrigins`. This
+protects against someone copying the embed snippet (embed tokens aren't secret — they
+ship in plain HTML) and running the widget on an unauthorized site.
+
+`allowedOrigins` is set once, at bot-creation time, as a JSON-encoded array of full URLs
+(scheme required), e.g. `["https://acmedental.com","https://www.acmedental.com"]` — use
+it for `www`/bare-domain variants, staging domains, or any additional site beyond the
+primary `websiteUrl` that should be able to embed the widget. `www.` is stripped before
+comparison, so registering either form covers both. Bots with neither `websiteUrl` nor
+`allowedOrigins` set (e.g. PDF-only bots) skip the origin check entirely — protection for
+those narrows to the embed token + session token alone. There is currently no endpoint to
+change a bot's registered origins after creation.
 
 ---
 

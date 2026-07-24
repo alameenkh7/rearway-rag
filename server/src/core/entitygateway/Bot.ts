@@ -5,6 +5,7 @@ export interface CreateBotPersistInput {
   companyName: string
   businessType?: string
   websiteUrl?: string
+  allowedOrigins?: string[]
   description?: string
   embedToken: string
   chunkCount: number

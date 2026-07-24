@@ -17,6 +17,9 @@ export class BotStatusResponseDTO {
   @ApiPropertyOptional()
   websiteUrl?: string
 
+  @ApiPropertyOptional({ type: [String] })
+  allowedOrigins?: string[]
+
   @ApiPropertyOptional()
   description?: string
 

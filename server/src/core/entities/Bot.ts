@@ -6,6 +6,9 @@ export interface Bot {
   companyName: string
   businessType?: string
   websiteUrl?: string
+  // Additional domains (beyond websiteUrl) allowed to embed this bot's
+  // widget — checked by OriginCheckGuard alongside websiteUrl.
+  allowedOrigins?: string[]
   // Free-text manual-content source from creation — folded into chunks and
   // never re-read, kept here for creation-time provenance/audit only.
   description?: string

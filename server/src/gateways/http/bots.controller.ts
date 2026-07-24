@@ -53,6 +53,12 @@ export class BotsController {
         companyName: { type: 'string', example: 'Acme Dental Clinic' },
         businessType: { type: 'string', example: 'Healthcare' },
         websiteUrl: { type: 'string', example: 'https://acmedental.com' },
+        allowedOrigins: {
+          type: 'string',
+          description:
+            'JSON-encoded array of additional domains allowed to embed the widget, e.g. ["https://acmedental.com","https://www.acmedental.com"]. websiteUrl is always allowed automatically.',
+          example: '["https://acmedental.com","https://www.acmedental.com"]',
+        },
         description: { type: 'string' },
         fallbackMessage: { type: 'string' },
         contactEmail: { type: 'string', format: 'email' },

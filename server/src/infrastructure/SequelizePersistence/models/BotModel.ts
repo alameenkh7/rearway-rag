@@ -21,6 +21,9 @@ export class BotModel extends Model {
   @Column({ type: DataType.STRING, allowNull: true })
   declare websiteUrl: string | null
 
+  @Column({ type: DataType.ARRAY(DataType.STRING), allowNull: true })
+  declare allowedOrigins: string[] | null
+
   @Column({ type: DataType.TEXT, allowNull: true })
   declare description: string | null
 

@@ -17,6 +17,7 @@ export interface CreateBotInput {
   companyName: string
   businessType?: string
   websiteUrl?: string
+  allowedOrigins?: string[]
   description?: string
   pdfBuffer?: Buffer
   fallbackMessage?: string
@@ -115,6 +116,9 @@ export function makeUC(deps: Deps) {
         companyName: input.companyName.trim(),
         businessType: input.businessType?.trim(),
         websiteUrl: hasWebsite ? input.websiteUrl!.trim() : undefined,
+        allowedOrigins: input.allowedOrigins
+          ?.map((origin) => origin.trim())
+          .filter(Boolean),
         description: hasDescription ? input.description!.trim() : undefined,
         embedToken,
         chunkCount: chunks.length,
